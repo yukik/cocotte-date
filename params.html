@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>Document</title>
+  <script type="text/javascript" src="date-format.js"></script>
+</head>
+<body>
+
+  <div id='result'></div>
+
+  <script>
+    var html = '<dl>';
+
+    // 変換対象
+    var date = new Date();
+
+    html += '<dt>入力値</dt><dd>' + date + '</dd>';
+
+    html += '<dt>------------- サポートしているパラメータ文字列 -------------</dt><dd></dd>';
+
+    // サポートしているパラメータ文字列
+    Object.keys(date_format.parameters).forEach(function (key){
+      html += '<dt>' + key + '</dt>' +
+              '<dd>' + date_format(date, key) + '</dd>';
+    });
+
+
+    html += '</dl>'
+    document.getElementById('result').innerHTML = html;
+  </script>
+</body>
+</html>
