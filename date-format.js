@@ -247,10 +247,9 @@ var date_format = (function (){
   var REG_MUSH = new RegExp(paramKeys.join('|'), 'g');
 
   // {}付きパラメータ文字列を検出する正規表現
-  var REG_PLACE = /\{(\w+)\}/i;
+  var REG_PLACE = /\{(\w+)\}/ig;
 
   // (exports)
-  // 規定のフォーマットを設定、{}付きに変えたりしてから変換
   function formatDate (value, format) {
     if (typeof value === 'string') {
       value = new Date(value);
@@ -266,28 +265,10 @@ var date_format = (function (){
     if (!~format.indexOf('{')) {
       format = format.replace(REG_MUSH, function (x) { return '{' + x + '}';});
     }
-    return replaceParam(value, format);
-  }
 
-  // {}付きパラメータ文字列を変換
-  function replaceParam (value, format) {
-    var match;
-    var result = '';
-    while(match = format.match(REG_PLACE)) {
-      if (match.index) {
-        result += format.substring(0, match.index);
-      }
-      var param = match[1];
-      if (param in PARAMS) {
-        result += PARAMS[param](value);
-      } else {
-        result += match[0];
-      }
-      format = format.substring(match.index + match[0].length);
-    }
-
-    result += format;
-    return result;
+    return format.replace(REG_PLACE, function (x, param){
+      return param in PARAMS ? PARAMS[param](value) : '{' + param + '}';
+    });
   }
 
   /**
@@ -321,11 +302,6 @@ var date_format = (function (){
     }
     for(var i = 0, len = NENGO.length; i < len; i++) {
       var item = NENGO[i];
-
-      // console.log(item.N);
-      // console.log(date);
-      // console.log(item.d);
-
       if (isStrict && item.d <= date || !isStrict && item.y <= Y) {
         return item;
       }
