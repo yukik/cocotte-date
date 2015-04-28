@@ -247,7 +247,7 @@ var date_format = (function (){
   var REG_MUSH = new RegExp(paramKeys.join('|'), 'g');
 
   // {}付きパラメータ文字列を検出する正規表現
-  var REG_PLACE = /\{(\w+)\}/ig;
+  var REG_PLACE = /\{(\w+)\}/g;
 
   // (exports)
   function formatDate (value, format) {
