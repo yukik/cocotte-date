@@ -299,11 +299,11 @@ var date_format = (function (){
    * 和暦から西暦にも対応
    * @method toDate
    * @param  {Date|String} value
-   * @return {String} seireki
+   * @return {Date}        date
    */
   function toDate(value) {
     if (value instanceof Date) {
-      return value;
+      return Number.isNaN(value.getTime()) ? null : value;
     }
     if (typeof value !== 'string') {
       return null;
