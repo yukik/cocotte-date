@@ -251,13 +251,8 @@ var date_format = (function (){
 
   // (exports)
   function formatDate (value, format) {
-    if (typeof value === 'string') {
-      value = new Date(value);
-    } else if (!(value instanceof Date)) {
-      return '';
-    }
-
-    if (Number.isNaN(value.getTime())) {
+    value = toDate(value);
+    if (!value) {
       return '';
     }
 
@@ -267,7 +262,7 @@ var date_format = (function (){
     }
 
     return format.replace(REG_PLACE, function (x, param){
-      return param in PARAMS ? PARAMS[param](value) : '{' + param + '}';
+      return param in PARAMS ? PARAMS[param](value) : x;
     });
   }
 
@@ -286,6 +281,43 @@ var date_format = (function (){
     {N: '西暦', n: '' , y:    1, d: new Date('0001-01-01 00:00:00.000')}
   ];
 
+  var NENGO_NAMES = NENGO.reduce(function(x, nengo) {
+    if (nengo.n) {
+      x.push(nengo.N);
+      x.push(nengo.n);
+    }
+    return x;
+  }, []);
+
+  // 和暦 -> 西暦 変換用 正規表現
+  var REG_NENGO = new RegExp('^(' + NENGO_NAMES.join('|') + ')(\\d+)\\D+(\\d+)\\D+(\\d+)\\D*$');
+
+  /**
+   * Dateオブジェクトを作成
+   * 
+   * 文字列からDateに対応
+   * 和暦から西暦にも対応
+   * @method toDate
+   * @param  {Date|String} value
+   * @return {String} seireki
+   */
+  function toDate(value) {
+    if (value instanceof Date) {
+      return value;
+    }
+    if (typeof value !== 'string') {
+      return null;
+    }
+    // 和暦時西暦に変換
+    value = value.replace(REG_NENGO, function(x, n, y, m, d) {
+      var idx = parseInt(NENGO_NAMES.indexOf(n) / 2, 10);
+      var nengo = NENGO[idx];
+      return (nengo.y + y * 1 - 1) + '-' + m + '-' + d;
+    });
+    value = new Date(value);
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
   /**
    * 年号オブジェクトの取得
    * @method getNengo
@@ -296,7 +328,7 @@ var date_format = (function (){
   function getNengo (date, isStrict) {
     var seireki = NENGO[NENGO.length - 1];
     var Y = date.getFullYear();
-    // 日本でのグレゴリア歴の導入は1873年（明治6年）以降。明治の元年〜5年は西暦を返す
+    // 日本でのグレゴリオ歴の導入は1873年（明治6年）以降。明治の元年〜5年は西暦を返す
     if (Y < 1873) {
       return seireki;
     }
@@ -339,6 +371,7 @@ var date_format = (function (){
 
   // 曜日一覧 日本語
   var jweek = ['日', '月', '火', '水', '木', '金', '土'];
+
 
   // 漢数字
   var jnum = ['', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
@@ -384,7 +417,6 @@ var date_format = (function (){
            (j === 0 ? '' : j === 1 ? '十' : jnum[j] + '十') +
            (i === 0 ? '' : jnum[i]);
   }
-
 
   // 引数省略時のフォーマット
   formatDate.defaultFormat = 'Y-m-d H:i:s';

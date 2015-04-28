@@ -452,9 +452,19 @@ assert.equal(format('2015-1-1 23:00', 'aj'), '午後');
 assert.equal(format('2015-4-10', '{Y}/{m}/{d} updated'), '2015/04/10 updated');
 assert.equal(format('2015-4-10', 'nennen2{nen3}nen4'), 'nennen2二十七nen4');
 
+// 存在しないパラメータ文字列
+assert.equal(format('2015-4-10', '{Ymd}'), '{Ymd}');
+assert.equal(format('2015-4-10', '{Y}{md}'), '2015{md}');
+
 // 混合
 assert.equal(format('2015-4-10', 'Ymd'), '20150410');
 assert.equal(format('2015-4-10', 'nennen2nen3nen4'), '2727二十七二七');
+
+// 和暦入力
+assert.equal(format('S50-1-2', 'Ymd'), '19750102');
+assert.equal(format('昭和50年1月2日', 'Ymd'), '19750102');
+assert.equal(format('S50 1 2', 'Ymd'), '19750102');
+
 
 
 
