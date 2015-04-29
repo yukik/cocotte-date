@@ -11,6 +11,8 @@
  *   年号は明治・大正・昭和・平成が登録されています
  *   明治6年1月1日より前の日付では、年号のかわりに西暦が使用されます
  *
+ * 祝日対応
+ *
  * @method date_format
  * @param  {Date}   value  日時形式の文字列の場合はDateオブジェクトに変換します
  * @param  {String} format 省略時は'Y-m-d H:i:s'
@@ -20,6 +22,54 @@ var date_format = (function (){
 
   // 一日のミリ秒
   var A_DAY = 86400000;
+
+  /**
+   * 年号
+   *  N: 年号の正式表記
+   *  n: 年号の略式表記
+   *  y: その年号の最初の年 (元年)
+   *  d: その年号の最初の日
+   */
+  var NENGO = [
+    {N: '平成', n: 'H', y: 1989, d: new Date('1989-01-08 00:00:00.000')},
+    {N: '昭和', n: 'S', y: 1926, d: new Date('1926-12-25 00:00:00.000')},
+    {N: '大正', n: 'T', y: 1912, d: new Date('1912-07-30 00:00:00.000')},
+    {N: '明治', n: 'M', y: 1868, d: new Date('1868-01-25 00:00:00.000')},
+    {N: '西暦', n: '' , y:    1, d: new Date('0001-01-01 00:00:00.000')}
+  ];
+
+  /**
+   * 祝日法施行以降(1948/7/20-)の祝日を定義する
+   */
+  var HOLIDAYS = [
+
+    // 祝日
+    '元日         1/1',
+    '成人の日     -1999/1/15  2000-/1/2Mon',
+    '建国記念の日 1967-/2/11',
+    '春分の日',   // 計算
+    '天皇誕生日   -1988/4/29',
+    'みどりの日   1989-2006/4/29',
+    '昭和の日     2007-/4/29',
+    '憲法記念日   5/3',
+    'みどりの日   2007-/5/4',
+    'こどもの日   5/5',
+    '海の日       1996-2002/7/20  2003-/7/3Mon',
+    '山の日       2016-/8/11',
+    '敬老の日     1966-2002/9/15  2003-/9/3Mon',
+    '秋分の日',   // 計算
+    '体育の日     1966-1999/10/10 2000-/10/2Mon',
+    '文化の日     11/3',
+    '勤労感謝の日 11/23',
+    '天皇誕生日   1989-/12/23',
+
+    // 皇室慶弔行事
+    '皇太子・明仁親王の結婚の儀  1959/4/10',
+    '昭和天皇の大喪の礼          1989/2/24',
+    '即位の礼正殿の儀            1990/11/12',
+    '皇太子・徳仁親王の結婚の儀  1993/6/9'
+
+  ];
 
   // パラメータ文字列の変換定義
   var PARAMS = {
@@ -165,7 +215,7 @@ var date_format = (function (){
     niti2: function (t) {return kan(t.getDate(), true);},
 
     // 接尾語 st nd rd th
-    S: function (t) {return suffix[t.getDate()];},
+    S: function (t) {return SUFFIX[t.getDate()];},
 
     // 年通算日数  0から開始
     z: function (t) {return Math.floor((t.getTime() - new Date(t.getFullYear(), 0, 1).getTime()) / A_DAY); },
@@ -180,15 +230,29 @@ var date_format = (function (){
     N: function (t) {return t.getDay() || 7;},
 
     // Monday
-    l: function (t) {return week[t.getDay()];},
+    l: function (t) {return WEEK[t.getDay()];},
 
     // Mon
-    D: function (t) {return week[t.getDay()].substring(0,3);},
+    D: function (t) {return WEEK_SHORT[t.getDay()];},
 
-    // 日本語 月 (曜日)
-    yobi: function (t) {return jweek[t.getDay()];},
+    // 日本語 月, 火, 水
+    yobi: function (t) {return JWEEK[t.getDay()];},
 
+    // 日本語 月, 火, 祝
+    yobi2: function (t) {return this.holiday(t) ? '祝' : this.yobi(t);},
 
+    // 日本語 月曜日, 火曜日, 祝日
+    yobi3: function (t) {
+      var y = this.yobi2(t);
+      return y + ( y === '祝' ? '日' : '曜日');
+    },
+
+    //  -----  祝日 -----
+
+    holiday: function (t) {
+      var key = (t.getMonth() + 1) * 100 + t.getDate();
+      return getHolidays(t.getFullYear())[key] || '';
+    },
 
     //  -----  時  -----
 
@@ -238,7 +302,7 @@ var date_format = (function (){
 
   // ここまでパラメータ文字列定義、ここからロジック
 
-
+  // パラメータ文字列を文字長が大きい順に並びかえる(REG_MUSH用)
   var paramKeys = Object.keys(PARAMS).sort(function(x, y){
     return y.length - x.length;
   });
@@ -249,7 +313,7 @@ var date_format = (function (){
   // {}付きパラメータ文字列を検出する正規表現
   var REG_PLACE = /\{(\w+)\}/g;
 
-  // (exports)
+  // (exports)  定義コメントはヘッダーで確認
   function formatDate (value, format) {
     value = toDate(value);
     if (!value) {
@@ -266,21 +330,7 @@ var date_format = (function (){
     });
   }
 
-  /**
-   * 年号
-   *  N: 年号の正式表記
-   *  n: 年号の略式表記
-   *  y: その年号の最初の年 (元年)
-   *  d: その年号の最初の日
-   */
-  var NENGO = [
-    {N: '平成', n: 'H', y: 1989, d: new Date('1989-01-08 00:00:00.000')},
-    {N: '昭和', n: 'S', y: 1926, d: new Date('1926-12-25 00:00:00.000')},
-    {N: '大正', n: 'T', y: 1912, d: new Date('1912-07-30 00:00:00.000')},
-    {N: '明治', n: 'M', y: 1868, d: new Date('1868-01-25 00:00:00.000')},
-    {N: '西暦', n: '' , y:    1, d: new Date('0001-01-01 00:00:00.000')}
-  ];
-
+  // ['平成', 'H', '昭和', 'S',...]  正規表現やtoDateの中で使用
   var NENGO_NAMES = NENGO.reduce(function(x, nengo) {
     if (nengo.n) {
       x.push(nengo.N);
@@ -311,8 +361,7 @@ var date_format = (function (){
     // 和暦時西暦に変換
     value = value.replace(REG_NENGO, function(x, n, y, m, d) {
       var idx = parseInt(NENGO_NAMES.indexOf(n) / 2, 10);
-      var nengo = NENGO[idx];
-      return (nengo.y + y * 1 - 1) + '-' + m + '-' + d;
+      return (NENGO[idx].y + y * 1 - 1) + '-' + m + '-' + d;
     });
     value = new Date(value);
     return Number.isNaN(value.getTime()) ? null : value;
@@ -342,9 +391,8 @@ var date_format = (function (){
   }
 
   // 月名一覧
-  var month = ['January', 'February', 'March', 'April', 'May', 'June',
-               'July', 'August', 'September', 'October', 'November', 'December'];
-
+  var month = ('January,February,March,April,May,June,' +
+      'July,August,September,October,November,December').split(',');
   /**
    * 週番号を取得
    * 月曜始まりに基づいています
@@ -359,22 +407,20 @@ var date_format = (function (){
   }
 
   // 日の接尾語
-  var suffix = [ '',
-    'st', 'nd', 'rd', 'th', 'th', 'th', 'th', 'th', 'th', 'th',
-    'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th',
-    'st', 'nd', 'rd', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'st'
-  ];
+  var SUFFIX = ('0,' +
+    'st,nd,rd,th,th,th,th,th,th,th,' +
+    'th,th,th,th,th,th,th,th,th,th,' +
+    'st,nd,rd,th,th,th,th,th,th,th,st').split(',');
 
   // 曜日一覧
-  var week = ['Sunday', 'Monday', 'Tuesday', 'Wednesday',
-              'Thursday', 'Friday', 'Saturday'];
+  var WEEK = 'Sunday,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday'.split(',');
+  var WEEK_SHORT = 'Sun,Mon,Tue,Wed,Thu,Fri,Sat'.split(',');
 
   // 曜日一覧 日本語
-  var jweek = ['日', '月', '火', '水', '木', '金', '土'];
-
+  var JWEEK = '日月火水木金土'.split('');
 
   // 漢数字
-  var jnum = ['', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
+  var JNUM = ',一,二,三,四,五,六,七,八,九'.split(',');
 
   /**
    * 漢数字変換
@@ -399,10 +445,9 @@ var date_format = (function (){
       return '';
     }
 
-
     if (shrt) {
       return ('' + num).split('').map(function(x){
-        return x === '0' ? '〇' : jnum[x * 1];
+        return x === '0' ? '〇' : JNUM[x * 1];
       }).join('');
     }
 
@@ -412,10 +457,242 @@ var date_format = (function (){
     var j = kurai[2] * 1;
     var i = kurai[3] * 1;
 
-    return (s === 0 ? '' : s === 1 ? '千' : jnum[s] + '千') +
-           (h === 0 ? '' : h === 1 ? '百' : jnum[h] + '百') +
-           (j === 0 ? '' : j === 1 ? '十' : jnum[j] + '十') +
-           (i === 0 ? '' : jnum[i]);
+    return (s === 0 ? '' : s === 1 ? '千' : JNUM[s] + '千') +
+           (h === 0 ? '' : h === 1 ? '百' : JNUM[h] + '百') +
+           (j === 0 ? '' : j === 1 ? '十' : JNUM[j] + '十') +
+           (i === 0 ? '' : JNUM[i]);
+  }
+
+
+
+  /**
+   *  以下、祝日の計算
+   */
+
+  // キャッシュ
+  var holidayCache = {};
+
+  /**
+   * 祝日一覧を取得する
+   * キーに日にち、値に祝日名が設定されたオブジェクトを返す
+   * 
+   *  {'101': '元日', '111': '成人の日', '211': '建国記念日', （省略...）
+   * 
+   * @method getHolidays
+   * @param  {Number}   year
+   * @return {Object}   holidays
+   */
+  function getHolidays(year) {
+    var holidays = holidayCache[year];
+    if (holidays) {
+      return holidays;
+    }
+    // 祝日法が制定される前は計算しない
+    if (year < 1948) {
+      return {};
+    }
+
+    // 祝日を計算し追加
+    holidays = {};
+    HOLIDAYS.forEach(function (item) {
+      var h = parseHoliday(year, item);
+      if (h) {
+        var key = h[0] * 100 + h[1];
+        holidays[key] = h[2];
+      }
+    });
+
+    // 振替休日・国民の休日を設定
+    setKyujitu(year, holidays);
+
+    // 1948/1/1-1948/7/19の施行前なので消す
+    if (year === 1948) {
+      Object.keys(holidays).forEach(function(key){
+        if (key*1 < 720) {
+          delete holidays[key];
+        }
+      });
+    }
+
+    // キャッシュに保存
+    holidayCache[year] = holidays;
+
+    return holidays;
+  }
+
+  // 祝日定義の日にち部分の正規表現
+  var REG_HOLIDAY = /^(?:(\d+)?(-)?(\d+)?\/)?(\d+)\/(\d+)(Sun|Mon|Tue|Wed|Thu|Fri|Sat)?$/;
+
+  /**
+   * 祝日の定義から、祝日であれば日にちを返す。祝日でないならnullを返す
+   *   例
+   *     year    = 2016
+   *     item    = '海の日 1996-2002/7/20  2003-/7/3Mon'
+   *     holiday = [7, 18, '海の日']
+   * 
+   * @method parseHoliday
+   * @param  {Number}     year
+   * @param  {String}     item
+   * @return {Array}      holiday
+   */
+  function parseHoliday(year, item) {
+    var data = item.match(/(\S+)/g);
+    var name = data[0];
+    if (name === '春分の日') {
+      return getShunbun(year);
+    }
+    if (name === '秋分の日') {
+      return getShubun(year);
+    }
+    for(var i = 1; i < data.length; i++) {
+      var m = data[i].match(REG_HOLIDAY);
+      if (m) {
+        var month = m[4] * 1;
+        var from = (m[1] || (month < 7 ? 1949 : 1948)) * 1;
+        var to = (m[3] || (m[2] ? year : (m[1] || year))) * 1;
+        var day = m[6] ? getXDay(year, month, m[5], m[6]) : m[5] * 1;
+        if (from <= year && year <= to) {
+          return [month, day, name];
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * 春分の日 (wikiの簡易計算より)
+   * @method getShunbun
+   * @param  {Number}   year
+   * @return {Array}    shunbun
+   */
+  function getShunbun(year) {
+    if (2099 < year) {
+      return null;
+    }
+    var day;
+    switch(year % 4) {
+    case 0:
+      day = year <= 1956 ? 21 : year <= 2088 ? 20 : 19;
+      break;
+    case 1:
+      day = year <= 1989 ? 21 : 20;
+      break;
+    case 2:
+      day = year <= 2022 ? 21 : 20;
+      break;
+    case 3:
+      day = year <= 1923 ? 22 : year <= 2055 ? 21 : 20;
+    }
+    return [3, day, '春分の日'];
+  }
+
+  /**
+   * 秋分の日 (wikiの簡易計算より)
+   * @method getShubun
+   * @param  {Number}  year
+   * @return {Array}   shubun
+   */
+  function getShubun(year) {
+    if (2099 < year) {
+      return null;
+    }
+    var day;
+    switch(year % 4) {
+    case 0:
+      day = year <= 2008 ? 23 : 22;
+      break;
+    case 1:
+      day = year <= 1917 ? 24 : year <= 2041 ? 23 : 22;
+      break;
+    case 2:
+      day = year <= 1946 ? 24 : year <= 2074 ? 23 : 22;
+      break;
+    case 3:
+      day = year <= 1979 ? 24 : 23;
+    }
+    return [9, day, '秋分の日'];
+  }
+
+  /**
+   * 振替休日・国民の休日を設定する
+   * @method setKyujitu
+   * @param  {Number}   year
+   * @param  {Object}   holidays
+   * @return {A}            [description]
+   */
+  function setKyujitu(year, holidays) {
+    var last = null;
+
+    /**
+     * 国民の休日
+     * 施行: 1988
+     */
+    var kokumin = [];
+    if (1988 <= year) {
+      
+      Object.keys(holidays).forEach(function(md) {
+        var date = new Date(year, md.slice(0, -2) * 1 - 1, md.slice(-2) * 1);
+        if (last){
+          last.setTime(last.getTime() + A_DAY);
+          if (last.getTime() + A_DAY === date.getTime()) {
+            kokumin.push((last.getMonth() + 1) * 100 + last.getDate());
+          }
+        }
+        last = date;
+      });
+    }
+
+    /**
+     * 振替休日
+     * 施行: 1973/4/30-
+     */
+    var furikae = [];
+    if (1973 <= year) {
+      var activeTime = new Date(1973, 4-1, 29).getTime(); // 施行前日の祝日から適用
+      var flg = false;
+      var keys = Object.keys(holidays);
+      keys.push('1231');
+      keys.forEach(function(md) {
+        var date = new Date(year, md.slice(0, -2) * 1 - 1, md.slice(-2) * 1);
+        if (flg) {
+          last.setTime(last.getTime() + A_DAY);
+          if (last.getTime() !== date.getTime()) {
+            furikae.push((last.getMonth() + 1) * 100 + last.getDate());
+            flg = false;
+          }
+        } else {
+          flg = date.getDay() === 0 && activeTime <= date.getTime();
+        }
+        last = date;
+      });
+    }
+
+    furikae.forEach(function(x){
+      holidays[x] = '振替休日';
+    });
+
+    kokumin.forEach(function (x){
+      if (x in holidays) {
+        return;
+      }
+      holidays[x] = '国民の休日';
+    });
+  }
+
+  /**
+   * 第x name曜日の日にちを返す
+   * @method getXDay
+   * @param  {Number} year
+   * @param  {Number} month
+   * @param  {Number} x
+   * @param  {String} name   Sun/Mon/Tue/Wed/Thu/Fri/Sat
+   * @return {Number} day
+   */
+  function getXDay(year, month, x, name) {
+    var w = WEEK_SHORT.indexOf(name);               // 曜日のインデックス
+    var f = new Date(year, month - 1, 1).getDay(); // 1日のインデックス
+    var d1 = 1 + w - f + (w < f ? 7 : 0);          // 第1の日にち
+    return d1 + (x - 1) * 7;                       // 第xの日にち
   }
 
   // 引数省略時のフォーマット
@@ -424,8 +701,10 @@ var date_format = (function (){
   // サポートしているパラメータ文字列
   formatDate.parameters = PARAMS;
 
-  return formatDate;
+  // 休日取得関数を外部から使えるようにしとく
+  formatDate.getHolidays = getHolidays;
 
+  return formatDate;
 })();
 
 // node時

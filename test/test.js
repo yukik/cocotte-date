@@ -1,6 +1,6 @@
 /*jshint maxlen:500*/
 
-var format = require('./date-format');
+var format = require('../date-format');
 
 var assert = require('assert');
 
@@ -376,6 +376,31 @@ assert.equal(format('2015-1-5' , 'yobi'), '月');
 assert.equal(format('2015-1-6' , 'yobi'), '火');
 assert.equal(format('2015-1-7' , 'yobi'), '水');
 
+
+// yobi2
+assert.equal(format('2015-1-1' , 'yobi2'), '祝');
+assert.equal(format('2015-1-2' , 'yobi2'), '金');
+assert.equal(format('2015-1-3' , 'yobi2'), '土');
+assert.equal(format('2015-1-4' , 'yobi2'), '日');
+assert.equal(format('2015-1-5' , 'yobi2'), '月');
+assert.equal(format('2015-1-6' , 'yobi2'), '火');
+assert.equal(format('2015-1-7' , 'yobi2'), '水');
+
+// yobi3
+assert.equal(format('2015-1-1' , 'yobi3'), '祝日');
+assert.equal(format('2015-1-2' , 'yobi3'), '金曜日');
+assert.equal(format('2015-1-3' , 'yobi3'), '土曜日');
+assert.equal(format('2015-1-4' , 'yobi3'), '日曜日');
+assert.equal(format('2015-1-5' , 'yobi3'), '月曜日');
+assert.equal(format('2015-1-6' , 'yobi3'), '火曜日');
+assert.equal(format('2015-1-7' , 'yobi3'), '水曜日');
+
+// holiday
+assert.equal(format('2015-1-1' , 'holiday'), '元日');
+assert.equal(format('2015-1-2' , 'holiday'), '');
+assert.equal(format('2015-1-12', 'holiday'), '成人の日');
+assert.equal(format('2016-8-11', 'holiday'), '山の日');
+
 // g
 assert.equal(format('2015-1-1 0:00' , 'g'),  '0');
 assert.equal(format('2015-1-1 1:00' , 'g'),  '1');
@@ -464,8 +489,4 @@ assert.equal(format('2015-4-10', 'nennen2nen3nen4'), '2727二十七二七');
 assert.equal(format('S50-1-2', 'Ymd'), '19750102');
 assert.equal(format('昭和50年1月2日', 'Ymd'), '19750102');
 assert.equal(format('S50 1 2', 'Ymd'), '19750102');
-
-
-
-
 
