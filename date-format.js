@@ -1,3 +1,5 @@
+/*jshint maxparams:8 */
+
 /**
  * 日時を書式に基づいて変換します
  *
@@ -9,19 +11,58 @@
  *
  * 和暦表示対応
  *   年号は明治・大正・昭和・平成が登録されています
+ *   未来の年号と年の一致は保証されていません
+ *   新しい年号はNENGOに追加してください
  *   明治6年1月1日より前の日付では、年号のかわりに西暦が使用されます
  *
  * 祝日対応
+ *   祝日法施行以降(1948/7/20-)の祝日にのみ対応しています
+ *   それ以前に祝日とされていた四大節等には対応していません
+ *   将来の春分の日、秋分の日は予測になり、保証するものではありません
+ *   新しい祝日は都度HOLIDAYSに追加してください
+ *   ある年の祝日をオブジェクトで取得する関数を利用することもできます
+ *     date_format.getHolidays(year)
+ *   
+ *
+ * 営業日
+ *   date_formatには簡易的に営業日を算出する機能があります
+ *   第三引数に数字を設定することによりその日数分だけ、営業日へ対象をずらし
+ *   書式を変更することができます
+ *   営業日の計算は次の条件で行います
+ *    日本の祝日を適用
+ *    土日を定休日とする
+ *    年末年始は12/29-1/3を休業日とする
+ *   あくまで簡易的な機能のため、複雑な営業日の計算を行いたい場合は、
+ *   次の関数であらかじめ営業日を算出する必要があります
+ *   date_format.addEigyobi(date, days, include, season, regular, holidays)
+ *   関数の使用方法は、addEigyobiのコメントを確認してください
  *
  * @method date_format
- * @param  {Date}   value  日時形式の文字列の場合はDateオブジェクトに変換します
- * @param  {String} format 省略時は'Y-m-d H:i:s'
+ * @param  {Date}   value   日時形式の文字列の場合はDateオブジェクトに変換します
+ * @param  {String} format  省略時は'Y-m-d H:i:s'
+ * @param  {Number} eigyobi 営業日
  * @return {String} result
  */
 var date_format = (function (){
 
+
+  /**
+   * *********************************************************
+   *                       定数定義
+   * *********************************************************
+   */
+
+  // 既定のフォーマット
+  var DEFAULT_FORMAT = 'Y-m-d H:i:s';
+
   // 一日のミリ秒
   var A_DAY = 86400000;
+
+  // 週の定休日 0:日, 1:月, 2:火, 3:水, 4:木, 5:金, 6:土
+  var REGULAR_HOLIDAY = [0, 6];
+
+  // 年末年始・お盆の休みの定義
+  var SEASON_HOLIDAY = '12/29-1/3';
 
   /**
    * 年号
@@ -71,7 +112,11 @@ var date_format = (function (){
 
   ];
 
-  // パラメータ文字列の変換定義
+  /**
+   * *********************************************************
+   *               パラメータ文字列の変換定義
+   * *********************************************************
+   */
   var PARAMS = {
 
     //  -----  カスタマイズ  -----
@@ -299,8 +344,11 @@ var date_format = (function (){
     aj: function (t) {return t.getHours() < 12 ? '午前' : '午後';}
   };
 
-
-  // ここまでパラメータ文字列定義、ここからロジック
+  /**
+   * *********************************************************
+   *                       フォーマット
+   * *********************************************************
+   */
 
   // パラメータ文字列を文字長が大きい順に並びかえる(REG_MUSH用)
   var paramKeys = Object.keys(PARAMS).sort(function(x, y){
@@ -314,10 +362,14 @@ var date_format = (function (){
   var REG_PLACE = /\{(\w+)\}/g;
 
   // (exports)  定義コメントはヘッダーで確認
-  function formatDate (value, format) {
+  function formatDate (value, format, eigyobi) {
     value = toDate(value);
     if (!value) {
       return '';
+    }
+
+    if (typeof eigyobi === 'number') {
+      value = addEigyobi(value, eigyobi);
     }
 
     format = format || formatDate.defaultFormat;
@@ -463,10 +515,189 @@ var date_format = (function (){
            (i === 0 ? '' : JNUM[i]);
   }
 
-
+  /**
+   * *********************************************************
+   *                       営業日計算
+   * *********************************************************
+   */
 
   /**
-   *  以下、祝日の計算
+   * 加算した営業日の算出
+   *
+   * 営業日を計算します
+   * 時間部分の値は変化しません
+   * 
+   * 営業日のルールは以下のとおり
+   *
+   * 加算する日数に1以上の場合は、翌営業日からカウントして算出します
+   * 加算する日数が0の場合は、dataが営業日であればdateを、そうでない場合は翌営業日を返します
+   * 加算する日数が-1以下の場合は、さかのぼって算出します
+   *
+   * その際includeがtrueの場合、dateもカウントの対象に含みます
+   * 加算する日数が0の場合はincludeは無視されます
+   * 
+   * regularは定休日を指定します。文字列で曜日を記述します複数ある場合はカンマ区切り
+   * 既定値は'土,日'です
+   * 関数を指定した場合は、引数に日にちが渡され休みの場合にtrue、営業日にfalseを返すようにします
+   *
+   * seasonに年末年始/お盆の休みを指定することができます
+   * 文字列で休みの日にちもしくは期間を指定してください。複数指定する場合はカンマ区切り
+   * 既定値は'12/29-1/3'です
+   *
+   * holidaysは月/日をカンマ区切りで指定することで祝日を指定することができます
+   * 設定しない場合は、日本の祝日を自動計算し休業日とします
+   * 関数を指定した場合は、引数に日にちが渡され休みの場合にtrue、営業日にfalseを返すようにします
+   * 
+   * @method addEigyobi
+   * @param  {Date}            date
+   * @param  {Number}          days     加算する日数
+   * @param  {Boolean}         include  初日を含む          規定値: false
+   * @param  {String}          season   年末年始/お盆の休み 規定値: '12/29-1/3'
+   * @param  {String|Function} regular  定休日(週)          規定値: '土,日'
+   * @param  {String|Function} holidays 祝日                規定値: 自動計算
+   */
+  function addEigyobi(date, days, include, season, regular, holidays) {
+    // 複製 (引数のオブジェクトへ影響しないよう配慮)
+    date = new Date(date);
+
+    // 0の場合の補正  +1営業日で前日からにすると同じ
+    if (days === 0) {
+      days = 1;
+      date.setTime(date.getTime() - A_DAY);
+
+    } else if (include) {
+      // 当日を含む場合は、一日前（先）にずらして調査すると同じ
+      date.setTime(date.getTime() + (0 < days ? -A_DAY : A_DAY));
+    }
+
+    // 休日 yymm形式
+    var closed = [];
+    // 週の定休日
+    var regularWeek = null;
+    // 定休日のカスタム関数
+    var regularFn = typeof regular === 'function' ? regular : null;
+    // 祝日を自動計算するかどうか
+    var holidayAuto = holidays === undefined || holidays === null;
+    // 祝日のカスタム関数
+    var holidayFn = typeof holidays === 'function' ? holidays : null;
+    // 最大調査日数
+    var max = 365;
+
+    // 年末年始/お盆休み
+    if (typeof season === 'string' && season !== '') {
+      closed = getDateArray(season || SEASON_HOLIDAY);
+    }
+
+    // 祝日の指定
+    if (typeof holidays === 'string') {
+      holidays = getDateArray(holidays);
+      if (holidays.length) {
+        closed = closed.concat(holidays);
+      }
+    }
+
+    // 定休日(週)
+    if (typeof regular === 'string') {
+      var weeks = [].slice.call(WEEK).concat(WEEK_SHORT).concat(JWEEK);
+      regularWeek = regular.split(',').map(function(w){
+                      return weeks.indexOf(w.trim()) % 7;
+                    }).filter(function(x){return ~x;});
+      regularWeek = regularWeek.length ? regularWeek : null;
+    } else if (!regularFn) {
+      regularWeek = REGULAR_HOLIDAY;
+    }
+
+    // 以下営業日の計算
+    while(days) {
+
+      date.setTime(date.getTime() + (0 < days ? A_DAY : -A_DAY));
+
+      // 日付キー
+      var key = (date.getMonth() + 1) * 100 + date.getDate() * 1;
+
+      // 日付指定の休日チェック (年末年始、お盆、自動計算ではない祝日)
+      var open = !~closed.indexOf(key);
+
+      // 曜日の定休日のチェック
+      if (open && regularWeek) {
+        open = !~regularWeek.indexOf(date.getDay());
+      }
+
+      // 祝日（自動計算）によるチェック
+      if (open && holidayAuto) {
+        var auto = getHolidays(date.getFullYear());
+        open = !(key in auto);
+      }
+
+      // 週の定休日のチェック
+      if (open && regularFn) {
+        open = !regularFn(date);
+      }
+
+      // 祝日のカスタム関数でチェック
+      if (open && holidayFn) {
+        open = !holidayFn(date);
+      }
+
+      if (open) {
+        if (0 < days) {
+          days--;
+        } else {
+          days++;
+        }
+      }
+
+      max--;
+      if (max < 0) {
+        return null;
+      }
+    }
+    return date;
+  }
+
+  // 月日の期間の正規表現
+  var REG_DATE_LIST = /^(\d{1,2})\/(\d{1,2})(?:-(\d{1,2})\/(\d{1,2}))?$/;
+
+  /**
+   * 文字列から月日の配列を作成する
+   *
+   * '12/25-1/5, 8/16-8/18, 10/10'
+   * @method getDateArray
+   * @param  {String}     value
+   * @return {Array}
+   */
+  function getDateArray(value) {
+    var result = [];
+    value.split(',').forEach(function(s){
+      var m = s.trim().match(REG_DATE_LIST);
+      if (m && m[3]) {
+        var m1 = m[1] * 1;
+        var d1 = m[2] * 1;
+        var m2 = m[3] * 1;
+        var d2 = m[4] * 1;
+        if (m2 < m1) {
+          m2 += 12;
+        }
+        while(m1 * 100 + d1 <= m2 * 100 + d2) {
+          result.push((12 < m1 ? m1 - 12 : m1) * 100 + d1);
+          if (31 <= d1) {
+            m1++;
+            d1 = 1;
+          } else {
+            d1++;
+          }
+        }
+      } else if (m){
+        result.push(m[1]*100 + m[2]*1);
+      }
+    });
+    return result;
+  }
+
+  /**
+   * *********************************************************
+   *                       祝日の計算
+   * *********************************************************
    */
 
   // キャッシュ
@@ -618,18 +849,16 @@ var date_format = (function (){
    * @method setKyujitu
    * @param  {Number}   year
    * @param  {Object}   holidays
-   * @return {A}            [description]
    */
   function setKyujitu(year, holidays) {
     var last = null;
 
     /**
      * 国民の休日
-     * 施行: 1988
+     * 施行: 1988-
      */
     var kokumin = [];
     if (1988 <= year) {
-      
       Object.keys(holidays).forEach(function(md) {
         var date = new Date(year, md.slice(0, -2) * 1 - 1, md.slice(-2) * 1);
         if (last){
@@ -696,12 +925,15 @@ var date_format = (function (){
   }
 
   // 引数省略時のフォーマット
-  formatDate.defaultFormat = 'Y-m-d H:i:s';
+  formatDate.defaultFormat = DEFAULT_FORMAT;
 
-  // サポートしているパラメータ文字列
+  // サポートしているパラメータ文字列(外部から書き換え厳禁)
   formatDate.parameters = PARAMS;
 
-  // 休日取得関数を外部から使えるようにしとく
+  // 営業日の計算関数
+  formatDate.addEigyobi = addEigyobi;
+
+  // 休日取得関数
   formatDate.getHolidays = getHolidays;
 
   return formatDate;
