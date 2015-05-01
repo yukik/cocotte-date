@@ -3,6 +3,7 @@
 
 
 var add = require('../date-format').addEigyobi;
+// var add = require('../minify').addEigyobi;
 
 var eq = require('assert').equal;
 

@@ -3,6 +3,7 @@
 
 
 var count = require('../date-format').countEigyobi;
+// var count = require('../minify').countEigyobi;
 
 var test = require('assert').equal;
 
