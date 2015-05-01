@@ -12,15 +12,16 @@
 
 定義
 
-  `{String} date_format ( {Date|String} date [, {String} format, [{Number} eigyobi]] )`  
+  `{String} date_format ( {Date|String} date [, {String} format [, {Number} eigyobi [, {Boolean} include]]] )`  
   formatの既定値は`'Y-m-d H:i:s'`です
   eigyobiの既定値は設定されていません
+  includeの既定値はfalseです
 
 例
 
 ```
-data_format(new Date('2015-4-27'), 'Y/m/d');  // '2015/4/27'
-data_format('2015-4-27', 'Y/m/d');  // '2015/4/27'
+date_format(new Date('2015-4-27'), 'Y/m/d');  // '2015/4/27'
+date_format('2015-4-27', 'Y/m/d');  // '2015/4/27'
 ```
 
 ２つめのように日付をあらわす文字列を直接引数にしてもかまいません
@@ -28,11 +29,16 @@ data_format('2015-4-27', 'Y/m/d');  // '2015/4/27'
 次のようにすると翌営業日を対象にします
 
 ```
-data_format('2015-5-4', 'Y/m/d', 1);  // '2015/5/7'
+date_format('2015-5-4', 'Y/m/d', 1);  // '2015/5/7'
 ```
 
 0を設定すると、第一引数が営業日であればその日を、そうでなければ翌営業日を対象にします
 
+includeをtrueにすると初日も営業日のカウントに含めます
+
+```
+date_format('2015-5-1', 'Y/m/d', 1, true);  // '2015/5/1'
+```
 
 # 和暦
 
@@ -58,7 +64,7 @@ data_format('2015-5-4', 'Y/m/d', 1);  // '2015/5/7'
 ある年の祝日の一覧を取得したい場合は次でできます
 
 ```
-var holidays = data_format.getHolidays(2015);
+var holidays = date_format.getHolidays(2015);
 ```
 
 
@@ -216,6 +222,6 @@ var holidays = data_format.getHolidays(2015);
 その他の文字はすべてそのまま表示されるようになります
 
 ```
-data_format('2015-4-27', '{Y}/{m}/{d} updated');  // '2015/4/27 updated'
+date_format('2015-4-27', '{Y}/{m}/{d} updated');  // '2015/4/27 updated'
 ```
 

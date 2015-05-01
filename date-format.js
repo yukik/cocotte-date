@@ -47,10 +47,11 @@
  *     (この関数は書式変換では使用しませんが、便利であるため定義されています)
  * 
  * @method date_format
- * @param  {Date}   value   日時形式の文字列の場合はDateオブジェクトに変換します
- * @param  {String} format  省略時は'Y-m-d H:i:s'
- * @param  {Number} eigyobi 営業日
- * @return {String} formatString
+ * @param  {Date}    value   日時形式の文字列の場合はDateオブジェクトに変換します
+ * @param  {String}  format  省略時は'Y-m-d H:i:s'
+ * @param  {Number}  eigyobi 営業日
+ * @param  {Boolean} include 初日を含む
+ * @return {String}  formatString
  */
 var date_format = (function (){
 
@@ -393,14 +394,14 @@ var date_format = (function (){
   var REG_PLACE = /\{(\w+)\}/g;
 
   // (exports)  定義コメントはヘッダーで確認
-  function formatDate (value, format, eigyobi) {
+  function formatDate (value, format, eigyobi, include) {
     value = toDate(value);
     if (!value) {
       return '';
     }
 
     if (typeof eigyobi === 'number') {
-      value = addEigyobi(value, eigyobi);
+      value = addEigyobi(value, eigyobi, include);
     }
 
     format = format || DEFAULT_FORMAT;

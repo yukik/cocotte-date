@@ -11,7 +11,7 @@
     "url": "git://github.com/yukik/cocotte-date.git"
   },
   "main": "date-format.js",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "scripts": {
     "test": "node ./test/test.js"
   },
