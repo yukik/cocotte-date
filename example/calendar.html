@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>カレンダー</title>
+  <script type="text/javascript" src="../date-format.js"></script>
+  <style type='text/css'>
+
+    td {
+      background: #f5f5f5;
+      border: 1px solid #fff;
+      text-align: center;
+      padding:8px;
+    }
+    td:hover {
+      background: #fff;
+    }
+    tr.calHeader td, td.calHeader {
+      background: #c0c0c0;
+    }
+    .sat {
+      color: blue;
+    }
+    .holiday, .sun, .closed {
+      color: red;
+    }
+  </style>
+
+
+</head>
+<body>
+
+  <a href = '?2014'>2014</a>
+  <a href = '?2015'>2015</a>
+  <a href = '?2016'>2016</a>
+  <a href = '?2017'>2017</a>
+  <a href = '?2018'>2018</a>
+  <a href = '?2019'>2019</a>
+  <a href = '?2020'>2020</a>
+
+  <script>
+
+    (function () {
+
+      var format = date_format;
+      var search = location.search.match(/^\?(\d{1,4})$/);
+      var year = search ? search[1] * 1: new Date().getFullYear();
+
+      var html = '<table id="calendar">';
+
+      // 月ループ
+      for(var month = 0; month < 12; month++) {
+        var last = new Date(year, month + 1, 0).getDate();
+        var week = new Date(year, month, 1).getDay();
+
+        html += '<tr class="calHeader"><td>'+year +'/' + (month + 1) +'</td>';
+        html += '<td class="sun">日</td><td>月</td><td>火</td><td>水</td><td>木</td><td>金</td><td class="sat">土</td></tr>\n';
+        html += '<tr><td class="calHeader"></td>';
+        html += new Array(week + 1).join('<td></td>');
+
+        // 日ループ
+        for (var day = 1; day <= last; day++) {
+          var date = year + '-' + (month + 1) + '-' + day;
+
+          if (day !== 1 && week === 0) {
+            html += '<tr><td class="calHeader"></td>';
+          }
+
+          // css用クラスとtitle
+          var setClass = '';
+          var title = '';
+          if (format(date, 'yobi2') === '祝') {
+            setClass = ' class="holiday"';
+            title = ' title="' + format(date, 'holiday') +'"'
+          } else if (week === 0) {
+            setClass = ' class="sun"';
+          } else if (week === 6) {
+            setClass = ' class="sat"';
+          } else if (format(date, 'eigyo') === '休') {
+            setClass = ' class="closed"';
+            title = ' title="休業日"'
+          }
+
+          html += '<td' + setClass + title + '>' + day + '</td>';
+
+          if (week === 6) {
+            html += '</tr>\n';
+            week = 0;
+          } else {
+            week++;
+          }
+        }
+
+        if (week !== 0) {
+          html += new Array(8 - week).join('<td></td>');
+        }
+        html += '</tr>\n';
+      }
+      document.write(html + '</table>');
+    })();
+  </script>
+</body>
+</html>
