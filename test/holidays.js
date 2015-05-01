@@ -1,3 +1,6 @@
+
+// 祝日
+
 var get = require('../date-format').getHolidays;
 var test = require('assert').deepEqual;
 

@@ -1,0 +1,23 @@
+{
+  "name": "cocotte-date",
+  "description": "japanese date formatter",
+  "homepage": "https://github.com/yukik/cocotte-date",
+  "keywords": ["cocotte", "tools"],
+  "author": "Yuki Kurata <yuki.kurata@gmail.com>",
+  "dependencies": {},
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/yukik/cocotte-date.git"
+  },
+  "main": "date-format.js",
+  "version": "1.2.1",
+  "scripts": {
+    "test": "node ./test/test.js"
+  },
+  "directories": {
+    "test": "test"
+  },
+  "readmeFilename": "README.md",
+  "license": "MIT"
+}

@@ -13,18 +13,17 @@
     var html = '<dl>';
 
     // 変換対象
-    var date = new Date();
+    var date = new Date('2015-5-5 12:34:56');
 
     html += '<dt>入力値</dt><dd>' + date + '</dd>';
 
     html += '<dt>------------- サポートしているパラメータ文字列 -------------</dt><dd></dd>';
 
     // サポートしているパラメータ文字列
-    Object.keys(date_format.parameters).forEach(function (key){
+    date_format.paramKeys.forEach(function (key){
       html += '<dt>' + key + '</dt>' +
-              '<dd>' + date_format(date, key) + '</dd>';
+              '<dd>' + date_format(date, key) + '&nbsp;</dd>';
     });
-
 
     html += '</dl>'
     document.getElementById('result').innerHTML = html;
