@@ -331,6 +331,13 @@ var date_format = (function (){
       return getHolidays(t.getFullYear())[key] || '';
     },
 
+    // 祝日名 元日, 成人の日, 休業日   ※年末年始/お盆の休みを休業日と返します
+    holiday2: function (t) {
+      var key = (t.getMonth() + 1) * 100 + t.getDate();
+      return getHolidays(t.getFullYear())[key] ||
+            (~getDateArray(SEASON_HOLIDAY).indexOf(key) ? '休業日' : '');
+    },
+
     //  -----  時  -----
 
     // 12時間 0無し    3
@@ -556,8 +563,11 @@ var date_format = (function (){
   /**
    * 営業日の算出
    *
+   * 適用事例:納品日を表示したい等
+   *
    * 営業日を計算します
    * 時間部分の値は変化しません
+   * 一年先(前)に見つからなかった場合はnullを返します
    * 
    * 営業日のルールは以下のとおり
    *
@@ -625,7 +635,76 @@ var date_format = (function (){
   }
 
   /**
+   * 営業日から逆引き
+   *
+   * 適用事例：納品しなければならない注文の受注日の閾日を調べたい等
+   *
+   * dateが営業日の場合
+   *   daysを加算し、営業日になる一番近い日付を返します
+   * dateが休業日の場合
+   *   daysを加算し、一番近い営業日に一番近い日付を返します
+   * 時間部分の値は変化しません
+   * 一年先(前)に見つからなかった場合はnullを返します
+   * 
+   * 1以上の場合は、過去の日付を返します
+   * daysが0の場合はその日が営業日ならその日を、そうでなければ一番近い日を返します
+   * -1以下の場合は、未来の日付を返します
+   * 
+   * @method toEigyobi
+   * @param  {Date|String}     date
+   * @param  {Number}          days
+   * @param  {Boolean}         include   初日を含む納品ではtrue
+   * @param  {String}          season
+   * @param  {String|Function} regular
+   * @param  {String|Function} holidays
+   * @return {Date}            date
+   */
+  function toEigyobi(date, days, include, season, regular, holidays) {
+    date = toDate(date);
+    if (!date) {
+      return null;
+    }
+
+    // 0の場合の補正  +1営業日で前日からにすると同じ
+    if (days === 0) {
+      days = 1;
+      date.setTime(date.getTime() + A_DAY);
+    }
+
+    // 順行
+    var forward = 0 < days ? 1 : -1;
+
+    // loopで最初に1日進むので1日対象を戻しておく
+    date.setTime(date.getTime() + A_DAY * forward);
+
+
+    // 営業日判別の設定取得
+    var config = getOpenedConfig(season, regular, holidays);
+
+    // 最大調査日数
+    var max = 365;
+
+    // 逆引き調査
+    while (days) {
+      date.setTime(date.getTime() - A_DAY * forward);
+      if (isOpened(date, config)) {
+        days -= forward;
+      }
+      if (--max < 0) {
+        return null;
+      }
+    }
+    if (!include) {
+      date.setTime(date.getTime() - A_DAY * forward);
+    }
+    return date;
+  }
+
+  /**
    * 営業日数の調査
+   *
+   * 適用事例: 出勤日数を調べる
+   * 
    * @method countEigyobi
    * @param  {String|Date}     from
    * @param  {String|Date}     to
@@ -700,11 +779,7 @@ var date_format = (function (){
 
     // 定休日(週)
     if (typeof regular === 'string') {
-      var weeks = [].slice.call(WEEK).concat(WEEK_SHORT).concat(JWEEK);
-      regularWeek = regular.split(',').map(function(w){
-                      return weeks.indexOf(w.trim()) % 7;
-                    }).filter(function(x){return ~x;});
-      regularWeek = regularWeek.length ? regularWeek : null;
+      regularWeek = getWeekIndex(regular.split(','));
     }
 
     // 年末年始/お盆休み
@@ -726,6 +801,39 @@ var date_format = (function (){
       regularFn  : regularFn,
       holidayFn  : holidayFn
     };
+  }
+
+  /**
+   * 週の文字列からインデックスを返す
+   * 配列を渡した場合は、配列で返す
+   * 判別できる週の文字列がひとつもない場合はnullを返す
+   *
+   * '日' -> 0,  'sat' -> 6, ['月', '火', '休'] -> [1, 2] 
+   * '祝' -> null, ['休', '祝'] -> null
+   * 
+   * @method getWeekIndex
+   * @param  {String|Array} week
+   * @return {String|Array} index
+   */
+  function getWeekIndex (week) {
+    if (!week) {
+      return null;
+    }
+    var weeks = [].slice.call(WEEK).concat(WEEK_SHORT)
+                .map(function(x){
+                  return x.toLowerCase();
+                }).concat(JWEEK);
+
+    if (Array.isArray(week)) {
+      var idxes = week.map(function(w){
+              return weeks.indexOf(w.trim().toLowerCase()) % 7;
+            }).filter(function(x){return ~x;});
+      return  idxes.length ? idxes : null;
+
+    } else {
+      var idx =  weeks.indexOf(week.toLowerCase()) % 7;
+      return idx === -1 ? null : idx;
+    }
   }
 
   /**
@@ -1041,6 +1149,129 @@ var date_format = (function (){
 
   /**
    * *********************************************************
+   *                  描画元データ
+   * *********************************************************
+   */
+
+ /**
+  * カレンダーデータ
+  *
+  * カレンダーを作成しやすい元データを提供します
+  * 開始曜日を指定するとゴースト日を追加します
+  *
+  * ゴースト日とは、
+  *   1日以前を日を週のはじめまで埋めるための日データと
+  *   末日以後の日を週の終わりまで埋めるための日データの２つを表します
+  *   カレンダーでは通常、薄いグレーなど影を薄くするため造語として
+  *   ゴースト日と命名しました
+  * 
+  * som    : 月のはじめ (start of month)
+  * eom    : 月の終わり (end of month)
+  * year   : 年
+  * month  : 月
+  * day    : 日
+  * week   : 曜日 0:日->6:土
+  * opened : 営業日ならtrue
+  * holiday: 祝日名、祝日ではない場合はnull
+  * sow    : 週のはじめ (start of week)   開始曜日設定時のみ
+  * eow    : 週の終わり (end of week)     開始曜日設定時のみ
+  * ghost  : ゴースト日はtrue             開始曜日設定時のみ
+  * block  : 月ブロックのキー '2015/01'   開始曜日設定時のみ
+  *
+  * @method getCalendarData
+  * @param  {Number|String} range     期間     2015, '2015/4' 2015/4-2016/3'
+  * @param  {String}        startWeek 開始曜日 規定値 null
+  *                            指定した場合は、ゴースト日のデータが追加され、
+  *                            sow/eow/ghost/blockのプロパティが追加されます
+  * @param  {Boolean}       six       6週分までゴースト日を追加します
+  *                                       
+  * @return {Array.Object} data 
+  */
+  function getCalendarData(range, startWeek, six) {
+    var year;
+    var month;
+    var endYear;
+    var endMonth;
+    if (typeof range === 'number' || /^\d{1,4}$/.test(range)) {
+      year = range * 1;
+      month = 1;
+      endYear = range * 1;
+      endMonth = 12;
+    } else {
+      var REG_RANGE = /^(\d{1,4})\D+(\d{1,2})(?:\D+(\d{1,4})\D+(\d{1,2}))?$/;
+      var m = range.match(REG_RANGE);
+      if (m) {
+        year = m[1] * 1;
+        month = m[2] * 1;
+        endYear =  (m[3] || m[1]) * 1;
+        endMonth = (m[4] || m[2]) * 1;
+      } else {
+        return null;
+      }
+    }
+    // 週のはじめと終わりのインデックス
+    var sw = getWeekIndex (startWeek);
+    var ew = sw === null ? null : sw === 0 ? 6 : sw - 1;
+
+    // 戻り値
+    var data = [];
+
+    // 月データ処理のループ
+    while(year*100 + month <= endYear * 100 + endMonth) {
+
+      // 月データの範囲   day: 開始日, endDay: 終了日
+      var day = new Date(year, month - 1, 1);
+      var week = day.getDay();
+      if (sw !== null) {
+        day = new Date(year, month - 1, sw - week - (sw <= week ? -1 : 6));
+      }
+      var endDay = new Date(year, month, 0);
+      if (six && sw !== null) {
+        endDay = new Date(day.getTime() + A_DAY * 41);
+      } else if (sw !== null) {
+        var endWeek = endDay.getDay();
+        endDay = new Date(year, month, sw - endWeek + (sw <= endWeek ? 6 : -1));
+      }
+
+      var som = true;
+
+      // 日データ処理のループ
+      while(true) {
+        var r = formatDate(day, '{Y}|{m}|{d}|{w}|{eigyo}|{holiday2}').split('|');
+        var item = {
+          som    : som,      // whileに入った直後だけtrue
+          eom    : false,    // whileを抜ける直前だけtrue
+          year   : r[0] * 1,
+          month  : r[1] * 1,
+          day    : r[2] * 1,
+          week   : r[3] * 1,
+          opened : r[4] !== '休',
+          holiday: r[5]
+        };
+        som = false;
+        // 週の始まりが指定されている時のみ設定
+        if (sw !== null) {
+          item.sow = sw === r[3] * 1;
+          item.eow = ew === r[3] * 1;
+          item.ghost = item.month !== month;
+          item.block = year + '/' + ('0' + month).slice(-2);
+        }
+        data.push(item);
+        if (day.getTime() === endDay.getTime()) {
+          item.eom = true;
+          break;
+        }
+        day.setTime(day.getTime() + A_DAY);
+      }
+ 
+      month = 12 <= month ? 1 : month + 1;
+      year = month === 1 ? year + 1 : year;
+    }
+    return data;
+  }
+
+  /**
+   * *********************************************************
    *                  読取専用プロパティ
    * *********************************************************
    */
@@ -1055,14 +1286,23 @@ var date_format = (function (){
    *                       補助関数
    * *********************************************************
    */
+  // 曜日文字列を曜日インデックスに変換
+  formatDate.getWeekIndex = getWeekIndex;
+
   // 営業日の計算関数
   formatDate.addEigyobi = addEigyobi;
+
+  // 営業日の逆引き計算関数
+  formatDate.toEigyobi = toEigyobi;
 
   // 営業日数の計算関数
   formatDate.countEigyobi = countEigyobi;
 
   // 休日取得関数
   formatDate.getHolidays = getHolidays;
+
+  // カレンダーデータの取得
+  formatDate.getCalendarData = getCalendarData;
 
   return formatDate;
 })();

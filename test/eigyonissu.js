@@ -1,10 +1,5 @@
-
 // 営業日数
-
-
-var count = require('../date-format').countEigyobi;
-// var count = require('../minify').countEigyobi;
-
+var count = require(global.minify ? '../minify' : '../date-format').countEigyobi;
 var test = require('assert').equal;
 
 test(count('2015-1-1', '2015-1-1'), 0);

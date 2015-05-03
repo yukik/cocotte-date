@@ -1,17 +1,12 @@
 
 // 営業日計算
-
-
-var add = require('../date-format').addEigyobi;
-// var add = require('../minify').addEigyobi;
-
+var add = require(global.minify ? '../minify' : '../date-format').addEigyobi;
 var eq = require('assert').equal;
-
 function test(actual, expected) {
   eq(actual ? actual.toString() : null, expected ? new Date(expected).toString() : null);
 }
 
-// var eigyobi = date_format.addEigyobi(date, days, include, season, regular, holidays)
+// params -> date, days, include, season, regular, holidays
 
 test(add('2015-5-1', 0), '2015-5-1');
 test(add('2015-5-2', 0), '2015-5-7');

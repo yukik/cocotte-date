@@ -1,10 +1,5 @@
-
-
 //営業日加算
-
-var format = require('../date-format');
-// var format = require('../minify');
-
+var format = require(global.minify ? '../minify' : '../date-format');
 var test = require('assert').equal;
 
 test(format('2015-4-8', 'Y/m/d', 1), '2015/04/09');

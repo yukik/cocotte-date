@@ -8,7 +8,19 @@
  (タイムゾーン等一部のパターンは未実装です)
 また、日本の年号、祝日、営業日に対応しています
 
-# 使用方法
+日付とは関連の深い処理を簡単に行うための、補助関数がいくつか用意されているため、以下のようなことにも使用できます
+
+  + ある年の祝日一覧
+  + 日付にX営業日加算した日付
+      + 適用事例：納品日の計算
+  + 日付はどの日付のx営業日後であるか（上記の逆算）
+      + 適用事例：納品しなければならない受注日の計算
+  + ある期間の営業日数
+      + 適用事例：出勤日数の計算
+  + カレンダーデータの取得
+      + 適用事例：カレンダーの作成
+
+# フォーマット関数の使用方法
 
 定義
 
@@ -116,6 +128,7 @@ var holidays = date_format.getHolidays(2015);
 | eigyo    | 曜日 日本語 省略形 休業日は曜日の代わりに休                         | 月, 火, 休       |
 | eigyo2   | 曜日 日本語 休業日は曜日の代わりに休業日                            | 月曜日, 休業日   |
 | holiday  | 祝日名 日本語 祝日でない場合は空文字                                | 元日, 成人の日   |
+| holiday2 | 祝日名 日本語 holidayに加え、年末年始/お盆の休みを休業日と返す      | 元日, 休業日     |
 | g        | 時 12時間制 0なし                                                   | 3, 9             |
 | G        | 時 24時間制 0なし                                                   | 3, 9, 15         |
 | h        | 時 12時間制 0あり                                                   | 03, 09           |
@@ -156,9 +169,9 @@ var holidays = date_format.getHolidays(2015);
 条件が変更する営業日の計算を行いたい場合は、次の関数`date_format.addEigyobi`で
 あらかじめ日付を算出し、第一引数に設定する必要があります
 
-## 営業日の算出
+## 営業日の加算
 
-営業日の算出を行うことができます
+日付に営業日を加算した日付の算出を行うことができます
 
 `var eigyobi = date_format.addEigyobi(date, days, include, season, regular, holidays)`
 
@@ -196,6 +209,18 @@ var holidays = date_format.getHolidays(2015);
 
 基準となる日時より１年先（前）以内に営業日が存在しなかった場合はnullが返されます
 
+
+## 営業日から逆算
+
+日付の営業日を加算する前の日付の算出を行うことができます  
+候補はいくつか出てきますが、一番近い日付を返します
+
+`var eigyobi = date_format.toEigyobi(date, days, include, season, regular, holidays)`
+
+例えば次のような場面で使用します。  
+3営業日で納品しなければならない。本日は、いつまでの日までの分の受注を納品作業しなければならないか？
+
+
 ## 営業日数の算出
 
 フォーマット関数では使用しませんが、営業日数を数えることができる関数が定義されています  
@@ -225,3 +250,124 @@ var holidays = date_format.getHolidays(2015);
 date_format('2015-4-27', '{Y}/{m}/{d} updated');  // '2015/4/27 updated'
 ```
 
+# カレンダーデータの取得
+
+カレンダーデータを簡単に作成することのできる補助関数が用意されています  
+
+`var data = format_date.getCalendarData(range, startWeek, six);`
+
+一般的なカレンダーをDOMの動的作成する際に、通常次のような処理が必要です
+
+  1. 曜日の始まりを決め、1日より前に幾つの空マスを用意しなければならないか計算
+  2. 週の終わりを検査し、次の行にするための判定を行う
+  3. 末日から週の終わりまで幾つの空マスで埋めるかを計算
+  4. 複数月を処理する場合は、データを何度も取得し、上記を行う
+
+これらを複雑な処理をViewコードで行う必要はありません  
+
+### データ
+
+補助関数を使用すると、次のようなデータを取得することができます
+
+```
+format_date.getCalendarData('2015/5', '日', true) ->
+
+[
+  {block: "2015/05", day: 26, eom: false, eow: false, ghost: true, holiday: "", month: 4, opened: false, som: true, sow: true, week: 0, year: 2015},
+  {block: "2015/05", day: 27, eom: false, eow: false, ghost: true, holiday: "", month: 4, opened: true, som: false, sow: false, week: 1, year: 2015},
+  {block: "2015/05", day: 28, eom: false, eow: false, ghost: true, holiday: "", month: 4, opened: true, som: false, sow: false, week: 2, year: 2015},
+  {block: "2015/05", day: 29, eom: false, eow: false, ghost: true, holiday: "昭和の日", month: 4, opened: false, som: false, sow: false, week: 3, year: 2015},
+  {block: "2015/05", day: 30, eom: false, eow: false, ghost: true, holiday: "", month: 4, opened: true, som: false, sow: false, week: 4,  year: 2015},
+  {block: "2015/05", day: 1, eom: false, eow: false, ghost: false, holiday: "", month: 5, opened: true, som: false, sow: false, week: 5, year: 2015},
+  {block: "2015/05", day: 2, eom: false, eow: true, ghost: false, holiday: "", month: 5, opened: false, som: false, sow: false, week: 6, year: 2015},
+    (中略)
+  {block: "2015/05", day: 31, eom: false, eow: false, ghost: false, holiday: "", month: 5, opened: false, som: false, sow: true, week: 0, year: 2015},
+  {block: "2015/05", day: 1, eom: false, eow: false, ghost: true, holiday: "", month: 6, opened: true, som: false, sow: false, week: 1, year: 2015},
+  {block: "2015/05", day: 2, eom: false, eow: false, ghost: true, holiday: "", month: 6, opened: true, som: false, sow: false, week: 2, year: 2015},
+  {block: "2015/05", day: 3, eom: false, eow: false, ghost: true, holiday: "", month: 6, opened: true, som: false, sow: false, week: 3, year: 2015},
+  {block: "2015/05", day: 4, eom: false, eow: false, ghost: true, holiday: "", month: 6, opened: true, som: false, sow: false, week: 4, year: 2015},
+  {block: "2015/05", day: 5, eom: false, eow: false, ghost: true, holiday: "", month: 6, opened: true, som: false, sow: false, week: 5, year: 2015},
+  {block: "2015/05", day: 6, eom: true, eow: true, ghost: true, holiday: "", month: 6, opened: false, som: false, sow: false, week: 6, year: 2015}
+]
+```
+
+引数で指定した月以外の日データも含まれてますが、正常な動作です  
+この指定した月以外の日をゴースト日と呼びます  
+ (カレンダーでは通常、薄いグレーなど影を薄くするためゴースト日と命名しました。造語です。)  
+このデータを利用すると先の1-4は次のように行います
+
+  1. 最初の要素から表示する。その際、ghost=trueは前月の日付なので目立たないように表示する
+  2. eow=trueは週の終わりなので、次行へ
+  3. 末日後もそのまま要素を表示する。その際ghost=trueは前月の日付なので目立たないように表示する
+  4. 複数月の場合は、som=trueは新しい月の最初のデータ、eom=trueは月の最後のデータとして扱う
+
+このように、カレンダーを作成するための情報が揃っています  
+Viewコードではデザインだけに集中することができます
+
+具体的なViewコードは、[example/calendar.html](https://github.com/yukik/cocotte-date/blob/master/example/calendar.html)を確認してください  
+非常にすっきりとしたViewコードであることが確認できます  
+これであれば、もっと複雑な処理（カレンダーを値の入力に使用する・予定を表示させるなど）を追加することが容易になります
+
+### 引数の説明
+
+  + range 
+      + 期間を指定します
+      + 次の３つの指定の方法があります
+          + 年を指定して1月から12月まで取得    2015, '2016'など
+          + 月を指定 '2015/4', '2015/10'など
+          + 期間を指定 '2015/4-2016/3'など
+  + startWeek
+      + 開始曜日を指定します 
+      + 規定値 null
+      + '月', '日'や'Mon', 'sunday' など大文字小文字問わず英語も指定できます
+      + 指定した場合は、ゴースト日のデータが追加され、sow/eow/ghost/blockのプロパティが追加されます
+      + 指定しない場合は、範囲指定した月のデータのみが取得されます
+  + six
+      + 6週分までゴースト日を追加します
+      + 既定値は false
+      + trueにすることで、月によって行数が変わることなくデザイン上、表示スペースを固定することができます
+
+### プロパティの説明
+
+  + som  (start of month)
+    + 月のはじめ 
+  + eom  (end of month)
+    + 月の終わり 
+  + year
+    + 年
+    + この年は、取得した月の年を表すのではなく、この日オブジェクト自身の年です
+    + どの月のデータとして取得したかは、blockプロパティで判定してください
+  + month
+    + 月
+    + この年は、取得した月を表すのではなく、この日オブジェクト自身の年です
+    + どの月のデータとして取得したかは、blockプロパティで判定してください
+  + day
+    + 日
+  + week
+    + 曜日 0:日->6:土
+  + opened
+    + 営業日ならtrue
+  + holiday
+    + 祝日名、祝日ではない場合はnull
+  + sow (start of week)   
+    + 週のはじめ 
+    + 開始曜日設定時のみ
+  + eow  (end of week)
+    + 週の終わり
+    + 開始曜日設定時のみ
+  + ghost
+    + ゴースト日はtrue
+    + 開始曜日設定時のみ
+  + block
+    + 月ブロックのキー 
+    + どの月のデータとして取得したかを表します
+    + 年月を次のような文字列で示します '2015/01'
+    + 開始曜日設定時のみ
+
+### 利点
+
+  + Viewコードがすっきりする
+  + 日曜始まりから月曜始まりの修正は、ほぼ一箇所だけで簡単に済むようになる
+  + 祝日名、営業中などの情報が含まれている
+  + 複数の月データを簡単に処理できる
+  + カレンダー以外の用途にも使用できる

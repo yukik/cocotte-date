@@ -1,8 +1,10 @@
-
 // test all
+
+global.minify = false;
 
 require('./params');
 require('./holidays');
 require('./eigyobi');
-require('./eigyobi2');
+require('./add-eigyobi');
+require('./to-eigyobi');
 require('./eigyonissu');

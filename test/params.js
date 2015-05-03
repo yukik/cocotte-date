@@ -3,9 +3,7 @@
 
 /*jshint maxlen:500*/
 
-var format = require('../date-format');
-// var format = require('../minify');
-
+var format = require(global.minify ? '../minify' : '../date-format');
 var test = require('assert').equal;
 
 

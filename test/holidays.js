@@ -1,9 +1,6 @@
 
 // 祝日
-
-var get = require('../date-format').getHolidays;
-// var get = require('../minify').getHolidays;
-
+var get = require(global.minify ? '../minify' : '../date-format').getHolidays;
 var test = require('assert').deepEqual;
 
 test(get(1948), {

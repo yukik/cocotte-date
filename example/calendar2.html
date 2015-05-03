@@ -8,8 +8,8 @@
     * {color: #6a1917;}
     ul {width: 450px; margin:0;}
     li {display:block; float: left; width: 150px;}
-    table {float: left;}
-    th {background: #d3ffa8;padding:8px;width:36px;}
+    caption {font-size: 150%;}
+    th {background: #d3ffa8;padding:8px;width:25px;}
     td {background: #f5f5f5;border: 1px solid #eee;text-align: center;padding:8px;}
     .weekday {color: #6a1917;}
     .sat     {color: #7fbfff;}
@@ -21,82 +21,71 @@
   </style>
 </head>
 <body>
-  <ul>
-    <li><a href='?2014'>2014</a></li>
-    <li><a href='?2015'>2015</a></li>
-    <li><a href='?2016'>2016</a><br/></li>
-    <li><a href='?2015.5'>2015.5</a></li>
-    <li><a href='?2015.6'>2015.6</a></li>
-    <li><a href='?2015.7'>2015.7</a><br/></li>
-    <li><a href='?2015.4-2016.3'>2015年度</a></li>
-    <li><a href='?2016.4-2017.3'>2016年度</a></li>
-  </ul>
-  <div style='clear:both;'></div>
-
   <script>
     (function () {
       // 週の並び
-      var weeks = '日月火水木金土'.split('');
-      // var weeks = 'Sun,Mon,Tue,Wed,Thu,Fri,Sat'.split(',');
-      // var weeks = '月火水木金土日'.split('');  // 週初めを月曜にする場合
+      var weeks = new Array(6+1).join('日月火水木金土');
+      // var weeks = new Array(6+1).join('月火水木金土日');  // 週初めを月曜にする場合
 
       // 月の行数を6行に固定する場合はtrue
       var six = true;
+      
+      // 必ず全てゴースト日になる列を省略するための最大値
+      var max = 31 + 6;
 
       // 曜日ヘッダの作成
-      var head = date_format.getWeekIndex(weeks).map(function(x, i){
+      var head = date_format.getWeekIndex(weeks.split('')).map(function(x, i){
             x =  x * 1;
             var name = x === 0 ? 'sun' : x === 6 ? 'sat' : 'weekday';
             return '<th class="' + name + '">' + weeks[i] + '</th>';
-          }).join('');
+          }).slice(0, max).join('');
 
-      // URLより表示範囲を取得 (取得できない場合は今年)
+      // URLより表示年を取得 (取得できない場合は今年)
       var search = decodeURIComponent(location.search);
-      var range = /^\?\d{1,4}(\D\d{1,2}(-\d{1,4}\D\d{1,2})?)?$/.test(search) ?
-        search.slice(1) : new Date().getFullYear();
+      var range = /^\?\d{1,4}$/.test(search) ? search.slice(1) : new Date().getFullYear();
 
-      // カレンダーデータの取得
-      var data = date_format.getCalendarData(range, weeks[0], six);
+      //カレンダーデータの取得
+      var data = date_format.getCalendarData(range, weeks[0], true);
 
       // html作成
-      var html = '';
+      var html = '<table>';
+      html += '<caption>' +
+              '<a href="?' + (range * 1 - 1) + '">&#x226A;</a>' +
+              '&nbsp;&nbsp;&nbsp;' + range + '年&nbsp;&nbsp;&nbsp;' +
+              '<a href="?' + (range * 1 + 1) + '">&#x226B;</a>' +
+              '</caption>\n';
+      html += '<tr><th></th>' + head + '</tr>\n';
+      var cut = false;
+
       data.forEach(function(day) {
 
         // 月初
         if (day.som) {
-          html += '<table>\n' +
-                  '<tr><th>' + day.block + '</th>' + head + '</tr>\n';
+          cut = false;
+          html += '<tr><th>' + day.block.slice(-2)*1 + '</th>\n';
         }
 
-        // 週初
-        if (day.sow) {
-          html += '<tr><th></th>';
-        }
-
-        // 日データ
         var className = day.ghost      ? 'ghost'   :
                         day.holiday    ? 'holiday' :
                         day.week === 0 ? 'sun'     :
                         day.week === 6 ? 'sat'     : 'weekday';
-        if (day.holiday) {
+
+        if (max < ++cut) {
+          // 余分なゴースト日を省略
+
+        } else if (day.holiday) {
           html += '<td class="' + className + '" title="' + day.holiday + '">' + day.day + '</td>';
         } else {
           html += '<td class="' + className + '">' + day.day + '</td>';
         }
 
-        // 週終
-        if (day.eow) {
-          html += '</tr>\n';
-        }
-
         // 月終
         if (day.eom) {
-          html += '</table>\n';
+          html += '</tr>\n';
         }
-
       });
       
-      document.write(html);
+      document.write(html + '</table>');
 
     })();
   </script>
